@@ -107,13 +107,22 @@ filtered_df = test_df[test_df['district'] == selected_district]
 market_list = sorted(filtered_df['industry'].unique())
 selected_market = st.selectbox("상권 선택", market_list)
 
-if not filtered_df.empty:
-    market_row = filtered_df[filtered_df['industry'] == selected_market].iloc[0]
+# -------------------------------
+# 9️⃣ 상권 존재 여부 체크
+# -------------------------------
+selected_market_df = filtered_df[filtered_df['industry'] == selected_market]
+
+if selected_market_df.empty:
+    st.warning("선택한 구/상권 데이터가 없습니다.")
+else:
+    market_row = selected_market_df.iloc[0]
     
-    # Risk Level → 문자열 + 공백 제거
+    # Risk Level → 문자열로 변환
     level = str(market_row['risk_level']).strip()
     
-    # 위험 등급별 색상 표시
+    # -------------------------------
+    # 10️⃣ 위험 분석 결과 표시
+    # -------------------------------
     color_map = {
         "Low Risk": "🟢",
         "Medium Risk": "🟡",
@@ -121,19 +130,14 @@ if not filtered_df.empty:
         "Critical Risk": "🔴"
     }
 
-    st.info(
-        f"""
-        {color_map.get(level, '⚪')} **위험 분석 결과**
-
-        - 구: {market_row['district']}
-        - 상권: {market_row['industry']}
-        - Risk Score: {market_row['risk_score']:.4f}
-        - Risk Level: {level}
-        """
-    )
+    st.markdown(f"**{color_map.get(level, '⚪')} 위험 분석 결과**")
+    st.write(f"- 구: {market_row['district']}")
+    st.write(f"- 상권: {market_row['industry']}")
+    st.write(f"- Risk Score: {market_row['risk_score']:.4f}")
+    st.write(f"- Risk Level: {level}")
 
     # -------------------------------
-    # 9️⃣ Risk Level별 친절 멘트
+    # 11️⃣ Risk Level별 친절 멘트
     # -------------------------------
     risk_messages = {
         "Low Risk": "🎉 지금 상권은 위험이 낮습니다. 안정적으로 운영 가능합니다.",
@@ -143,16 +147,4 @@ if not filtered_df.empty:
     }
 
     message = risk_messages.get(level, "정보를 확인할 수 없습니다.")
-
-    if level == "Low Risk":
-        st.success(message)
-    elif level == "Medium Risk":
-        st.info(message)
-    elif level == "High Risk":
-        st.warning(message)
-    elif level == "Critical Risk":
-        st.error(message)
-    else:
-        st.write(message)
-else:
-    st.warning("선택된 구/상권 데이터가 없습니다.")
+    st.write(message)
