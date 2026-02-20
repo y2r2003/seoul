@@ -124,7 +124,3 @@ elif status['color'] == "warning":
     st.warning(status['msg'])
 else:
     st.error(status['msg'])
-
-# 세부 지표 데이터 표시
-with st.expander("세부 데이터 확인"):
-    st.table(market_row[to_scale + ['risk_score', 'risk_level']])
