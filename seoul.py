@@ -3,7 +3,6 @@ from sklearn.preprocessing import MinMaxScaler
 import streamlit as st
 
 st.set_page_config(page_title="2025 상권 위험지수", layout="wide")
-
 st.title("📊 2025 상권 위험지수 분석")
 
 # -------------------------------
@@ -11,6 +10,10 @@ st.title("📊 2025 상권 위험지수 분석")
 # -------------------------------
 train_df = pd.read_excel("2019-2024.xlsx")
 test_df = pd.read_excel("2025.xlsx")
+
+# 컬럼명 공백 제거 & 소문자 통일
+train_df.columns = train_df.columns.str.strip().str.lower()
+test_df.columns = test_df.columns.str.strip().str.lower()
 
 # -------------------------------
 # 2️⃣ 위험지수 계산에 사용할 컬럼
@@ -85,7 +88,6 @@ test_df['risk_level'] = test_df['risk_score'].apply(risk_level)
 # 7️⃣ 전체 위험 분포 시각화
 # -------------------------------
 st.subheader("전체 위험 등급 분포")
-
 risk_summary = test_df['risk_level'].value_counts()
 st.bar_chart(risk_summary)
 
@@ -94,15 +96,16 @@ st.bar_chart(risk_summary)
 # -------------------------------
 st.subheader("구 / 상권별 위험지수 확인")
 
+# 컬럼 소문자 통일
 district_list = sorted(test_df['district'].unique())
 selected_district = st.selectbox("구 선택", district_list)
 
 filtered_df = test_df[test_df['district'] == selected_district]
 
-market_list = sorted(filtered_df['Industry'].unique())
+market_list = sorted(filtered_df['industry'].unique())
 selected_market = st.selectbox("상권 선택", market_list)
 
-market_row = filtered_df[filtered_df['Industry'] == selected_market].iloc[0]
+market_row = filtered_df[filtered_df['industry'] == selected_market].iloc[0]
 
 # 위험 등급별 색상 설정
 color_map = {
@@ -117,8 +120,31 @@ st.info(
     {color_map[market_row['risk_level']]} **위험 분석 결과**
 
     - 구: {market_row['district']}
-    - 상권: {market_row['Industry']}
+    - 상권: {market_row['industry']}
     - Risk Score: {market_row['risk_score']:.4f}
     - Risk Level: {market_row['risk_level']}
     """
 )
+
+# -------------------------------
+# 9️⃣ Risk Level 별 친절 멘트
+# -------------------------------
+risk_messages = {
+    "Low Risk": "🎉 지금 상권은 위험이 낮습니다. 안정적으로 운영 가능합니다.",
+    "Medium Risk": "⚠️ 지금 상권은 중간 정도의 위험이 있습니다. 주의가 필요합니다.",
+    "High Risk": "🔶 지금 상권은 높은 위험이 있습니다. 전략적 대응을 고려하세요.",
+    "Critical Risk": "🛑 지금 상권은 매우 위험합니다. 신중한 판단이 필요합니다."
+}
+
+message = risk_messages.get(market_row['risk_level'], "정보를 확인할 수 없습니다.")
+
+if market_row['risk_level'] == "Low Risk":
+    st.success(message)
+elif market_row['risk_level'] == "Medium Risk":
+    st.info(message)
+elif market_row['risk_level'] == "High Risk":
+    st.warning(message)
+elif market_row['risk_level'] == "Critical Risk":
+    st.error(message)
+else:
+    st.write(message)
