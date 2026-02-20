@@ -3,7 +3,7 @@ from sklearn.preprocessing import MinMaxScaler
 import streamlit as st
 
 # 페이지 설정
-st.set_page_config(page_title="2025 상권 위험지수 분석", layout="wide")
+st.set_page_config(page_title="STORECAST", layout="wide")
 
 # -------------------------------
 # 1️⃣ 데이터 불러오기
@@ -68,7 +68,8 @@ test_df['risk_level'] = test_df['risk_score'].apply(get_risk_level)
 # -------------------------------
 # 4️⃣ UI 메인 화면
 # -------------------------------
-st.title("📊 2025 상권 위험지수 분석 대시보드")
+st.title("📊 STORECAST \n")
+st.title(": 상권 위험지수 분석서비스")
 st.markdown("과거 데이터(2019-2024)를 기준으로 2025년 상권의 상대적 위험도를 측정합니다.")
 st.divider()
 
