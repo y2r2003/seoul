@@ -99,10 +99,10 @@ selected_district = st.selectbox("구 선택", district_list)
 
 filtered_df = test_df[test_df['district'] == selected_district]
 
-market_list = sorted(filtered_df['market'].unique())
+market_list = sorted(filtered_df['Industry'].unique())
 selected_market = st.selectbox("상권 선택", market_list)
 
-market_row = filtered_df[filtered_df['market'] == selected_market].iloc[0]
+market_row = filtered_df[filtered_df['Industry'] == selected_market].iloc[0]
 
 # 위험 등급별 색상 설정
 color_map = {
@@ -117,7 +117,7 @@ st.info(
     {color_map[market_row['risk_level']]} **위험 분석 결과**
 
     - 구: {market_row['district']}
-    - 상권: {market_row['market']}
+    - 상권: {market_row['Industry']}
     - Risk Score: {market_row['risk_score']:.4f}
     - Risk Level: {market_row['risk_level']}
     """
