@@ -2,24 +2,22 @@ import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 import streamlit as st
 
-# -------------------------------
-# 0️⃣ 페이지 설정
-# -------------------------------
-st.set_page_config(page_title="2025 상권 위험지수", layout="wide")
-st.title("📊 2025 상권 위험지수 분석")
+# 페이지 설정
+st.set_page_config(page_title="2025 상권 위험지수 분석", layout="wide")
 
 # -------------------------------
 # 1️⃣ 데이터 불러오기
 # -------------------------------
-train_df = pd.read_excel("2019-2024.xlsx")
-test_df = pd.read_excel("2025.xlsx")
-
-# 컬럼 공백 제거 + 소문자 통일
-train_df.columns = train_df.columns.str.strip().str.lower()
-test_df.columns = test_df.columns.str.strip().str.lower()
+# 파일이 같은 경로에 있어야 합니다.
+try:
+    train_df = pd.read_excel("2019-2024.xlsx")
+    test_df = pd.read_excel("2025.xlsx")
+except FileNotFoundError:
+    st.error("데이터 파일을 찾을 수 없습니다. 파일명을 확인해주세요.")
+    st.stop()
 
 # -------------------------------
-# 2️⃣ 위험지수 계산에 사용할 컬럼
+# 2️⃣ 위험지수 계산 및 스케일링
 # -------------------------------
 to_scale = [
     'closure_rate',
@@ -29,27 +27,13 @@ to_scale = [
     'franchise_ratio_change'
 ]
 
-# -------------------------------
-# 3️⃣ Min-Max 스케일링
-# -------------------------------
 scaler = MinMaxScaler()
 scaler.fit(train_df[to_scale])
 
-train_scaled = pd.DataFrame(
-    scaler.transform(train_df[to_scale]),
-    columns=to_scale,
-    index=train_df.index
-)
+train_scaled = pd.DataFrame(scaler.transform(train_df[to_scale]), columns=to_scale, index=train_df.index)
+test_scaled = pd.DataFrame(scaler.transform(test_df[to_scale]), columns=to_scale, index=test_df.index)
 
-test_scaled = pd.DataFrame(
-    scaler.transform(test_df[to_scale]),
-    columns=to_scale,
-    index=test_df.index
-)
-
-# -------------------------------
-# 4️⃣ 가중치 정의
-# -------------------------------
+# 가중치 정의
 weights = {
     'closure_rate': 0.30,
     'sales_per_store_inv': 0.25,
@@ -58,9 +42,7 @@ weights = {
     'franchise_ratio_change': 0.10
 }
 
-# -------------------------------
-# 5️⃣ Risk Score 계산
-# -------------------------------
+# Risk Score 계산
 train_df['risk_score'] = 0
 test_df['risk_score'] = 0
 
@@ -69,82 +51,80 @@ for col, w in weights.items():
     test_df['risk_score'] += test_scaled[col] * w
 
 # -------------------------------
-# 6️⃣ Risk Level 정의 (사분위수 기준)
+# 3️⃣ 위험 등급 정의 (사분위수 기준)
 # -------------------------------
 q1 = train_df['risk_score'].quantile(0.25)
 q2 = train_df['risk_score'].quantile(0.50)
 q3 = train_df['risk_score'].quantile(0.75)
 
-def risk_level(score):
-    if score < q1:
-        return "Low Risk"
-    elif score < q2:
-        return "Medium Risk"
-    elif score < q3:
-        return "High Risk"
-    else:
-        return "Critical Risk"
+def get_risk_level(score):
+    if score < q1: return "Low Risk"
+    elif score < q2: return "Medium Risk"
+    elif score < q3: return "High Risk"
+    else: return "Critical Risk"
 
-test_df['risk_level'] = test_df['risk_score'].apply(risk_level)
+test_df['risk_level'] = test_df['risk_score'].apply(get_risk_level)
 
 # -------------------------------
-# 7️⃣ 전체 위험 분포 시각화
+# 4️⃣ UI 메인 화면
 # -------------------------------
-st.subheader("전체 위험 등급 분포")
-risk_summary = test_df['risk_level'].value_counts()
+st.title("📊 2025 상권 위험지수 분석 대시보드")
+st.markdown("과거 데이터(2019-2024)를 기준으로 2025년 상권의 상대적 위험도를 측정합니다.")
+st.divider()
+
+# 상단 요약 통계
+st.subheader("📍 전체 위험 등급 분포")
+risk_summary = test_df['risk_level'].value_counts().reindex(["Low Risk", "Medium Risk", "High Risk", "Critical Risk"])
 st.bar_chart(risk_summary)
 
 # -------------------------------
-# 8️⃣ 구 / 상권 선택
+# 5️⃣ 구 / 상권 선택 및 결과 출력
 # -------------------------------
-st.subheader("구 / 상권별 위험지수 확인")
+st.subheader("🔍 지역별 상세 분석")
 
-district_list = sorted(test_df['district'].unique())
-selected_district = st.selectbox("구 선택", district_list)
+col_select1, col_select2 = st.columns(2)
+with col_select1:
+    district_list = sorted(test_df['district'].unique())
+    selected_district = st.selectbox("분석할 '구'를 선택하세요", district_list)
 
 filtered_df = test_df[test_df['district'] == selected_district]
 
-market_list = sorted(filtered_df['industry'].unique())
-selected_market = st.selectbox("상권 선택", market_list)
+with col_select2:
+    market_list = sorted(filtered_df['Industry'].unique())
+    selected_market = st.selectbox("분석할 '상권(업종)'을 선택하세요", market_list)
 
-# -------------------------------
-# 9️⃣ 상권 존재 여부 체크
-# -------------------------------
-selected_market_df = filtered_df[filtered_df['industry'] == selected_market]
+# 선택된 데이터 추출
+market_row = filtered_df[filtered_df['Industry'] == selected_market].iloc[0]
 
-if selected_market_df.empty:
-    st.warning("선택한 구/상권 데이터가 없습니다.")
+# 위험 등급별 설정 (아이콘 및 메시지)
+risk_info = {
+    "Low Risk": {"emoji": "🟢", "msg": "🎉 지금 상권은 위험이 낮습니다. 안정적으로 운영 가능합니다.", "color": "success"},
+    "Medium Risk": {"emoji": "🟡", "msg": "⚠️ 지금 상권은 중간 정도의 위험이 있습니다. 주의가 필요합니다.", "color": "info"},
+    "High Risk": {"emoji": "🟠", "msg": "🔶 지금 상권은 높은 위험이 있습니다. 전략적 대응을 고려하세요.", "color": "warning"},
+    "Critical Risk": {"emoji": "🔴", "msg": "🛑 지금 상권은 매우 위험합니다. 신중한 판단이 필요합니다.", "color": "error"}
+}
+
+status = risk_info[market_row['risk_level']]
+
+# 결과 리포트 출력
+st.markdown(f"### {status['emoji']} {selected_district} - {selected_market} 분석 결과")
+
+# 메트릭 카드로 시각화
+m1, m2, m3 = st.columns(3)
+m1.metric("Risk Score", f"{market_row['risk_score']:.4f}")
+m2.metric("위험 등급", market_row['risk_level'])
+m3.metric("상태", status['emoji'])
+
+# 맞춤 메시지 박스 출력
+if status['color'] == "success":
+    st.success(status['msg'])
+elif status['color'] == "info":
+    st.info(status['msg'])
+elif status['color'] == "warning":
+    st.warning(status['msg'])
 else:
-    market_row = selected_market_df.iloc[0]
-    
-    # Risk Level → 문자열로 변환
-    level = str(market_row['risk_level']).strip()
-    
-    # -------------------------------
-    # 10️⃣ 위험 분석 결과 표시
-    # -------------------------------
-    color_map = {
-        "Low Risk": "🟢",
-        "Medium Risk": "🟡",
-        "High Risk": "🟠",
-        "Critical Risk": "🔴"
-    }
+    st.error(status['msg'])
 
-    st.markdown(f"**{color_map.get(level, '⚪')} 위험 분석 결과**")
-    st.write(f"- 구: {market_row['district']}")
-    st.write(f"- 상권: {market_row['industry']}")
-    st.write(f"- Risk Score: {market_row['risk_score']:.4f}")
-    st.write(f"- Risk Level: {level}")
-
-    # -------------------------------
-    # 11️⃣ Risk Level별 친절 멘트
-    # -------------------------------
-    risk_messages = {
-        "Low Risk": "🎉 지금 상권은 위험이 낮습니다. 안정적으로 운영 가능합니다.",
-        "Medium Risk": "⚠️ 지금 상권은 중간 정도의 위험이 있습니다. 주의가 필요합니다.",
-        "High Risk": "🔶 지금 상권은 높은 위험이 있습니다. 전략적 대응을 고려하세요.",
-        "Critical Risk": "🛑 지금 상권은 매우 위험합니다. 신중한 판단이 필요합니다."
-    }
-
-    message = risk_messages.get(level, "정보를 확인할 수 없습니다.")
-    st.write(message)
+# 세부 지표 데이터 표시
+with st.expander("세부 데이터 확인"):
+    st.table(market_row[to_scale + ['risk_score', 'risk_level']])
